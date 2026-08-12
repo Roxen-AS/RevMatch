@@ -123,7 +123,6 @@ export default function Home() {
             Rev<span className="text-red-500">Match</span>
           </p>
           <p className="text-sm uppercase tracking-widest text-red-500 font-semibold">
-            AI Race Month · Problem 01
           </p>
           <h1 className="text-3xl sm:text-4xl font-bold">The Silent Co-Driver</h1>
           <p className="text-zinc-400">
