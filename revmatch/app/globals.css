@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+:root {
+  --accent: #ef4444;
+  --accent-soft: rgba(239, 68, 68, 0.10);
+  --accent-border: rgba(239, 68, 68, 0.30);
+}
+
+body {
+  background: #09090b;
+  color: #f4f4f5;
+}
+
+.carbon {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background-color: #09090b;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 6px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 6px);
+}
+
+.bg-glow {
+  position: fixed;
+  top: -20%;
+  left: 50%;
+  width: 140vw;
+  height: 70vh;
+  transform: translateX(-50%);
+  z-index: -2;
+  background: radial-gradient(ellipse at center, var(--accent-soft) 0%, transparent 65%);
+  filter: blur(10px);
+  animation: pulse 6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+.streaks {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.streak {
+  position: absolute;
+  height: 2px;
+  width: 40vw;
+  top: var(--top);
+  left: -45vw;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.5;
+  filter: blur(0.5px);
+  animation: sweep var(--dur) linear infinite;
+  animation-delay: var(--delay);
+  transform: skewY(-6deg);
+}
+
+@keyframes sweep {
+  0%   { transform: translateX(0) skewY(-6deg); opacity: 0; }
+  8%   { opacity: 0.55; }
+  92%  { opacity: 0.55; }
+  100% { transform: translateX(230vw) skewY(-6deg); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streak, .bg-glow { animation: none; }
+}
+
+.checker {
+  height: 10px;
+  background-image:
+    conic-gradient(#3f3f46 90deg, transparent 90deg 180deg, #3f3f46 180deg 270deg, transparent 270deg);
+  background-size: 10px 10px;
+  opacity: 0.6;
+}

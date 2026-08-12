@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full antialiased">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RevMatch</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --accent: #ef4444;
+    --accent-soft: rgba(239,68,68,0.10);
+    --accent-border: rgba(239,68,68,0.30);
+    --accent-text: #f87171;
+  }
+
+  body { background: #09090b; }
+
+  /* ---------- Background: carbon weave + speed streaks + glow ---------- */
+  .carbon {
+    position: fixed;
+    inset: 0;
+    z-index: -3;
+    background-color: #09090b;
+    background-image:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 6px),
+      repeating-linear-gradient(-45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 6px);
+  }
+
+  .glow {
+    position: fixed;
+    top: -20%;
+    left: 50%;
+    width: 140vw;
+    height: 70vh;
+    transform: translateX(-50%);
+    z-index: -2;
+    background: radial-gradient(ellipse at center, var(--accent-soft) 0%, transparent 65%);
+    filter: blur(10px);
+    animation: pulse 6s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 0.7; } 50% { opacity: 1; } }
+
+  .streaks { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+
+  .streak {
+    position: absolute;
+    height: 2px;
+    width: 40vw;
+    top: var(--top);
+    left: -45vw;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.5;
+    filter: blur(0.5px);
+    animation: sweep var(--dur) linear infinite;
+    animation-delay: var(--delay);
+    transform: skewY(-6deg);
+  }
+  @keyframes sweep {
+    0%   { transform: translateX(0) skewY(-6deg); opacity: 0; }
+    8%   { opacity: 0.55; }
+    92%  { opacity: 0.55; }
+    100% { transform: translateX(230vw) skewY(-6deg); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { .streak, .glow { animation: none; } }
+
+  /* ---------- Simple accent utilities, same as the version you liked ---------- */
+  .accent-text { color: var(--accent-text); }
+  .accent-bg { background-color: var(--accent); }
+  .accent-border { border-color: var(--accent); }
+  .accent-badge { background-color: var(--accent-soft); color: var(--accent-text); border-color: var(--accent-border); }
+
+  select#theme-select {
+    background-color: #18181b;
+    border: 1px solid #3f3f46;
+  }
+
+  .watermark {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .watermark span {
+    font-family: -apple-system, 'Segoe UI', Arial, sans-serif;
+    font-weight: 700;
+    font-style: italic;
+    font-size: clamp(3.5rem, 14vw, 11rem);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    transform: rotate(-6deg);
+    transition: color 0.5s ease, opacity 0.5s ease;
+    opacity: 0;
+    user-select: none;
+  }
+  .watermark span.visible { opacity: 0.16; }
+</style>
+</head>
+<body class="min-h-full flex flex-col text-zinc-100">
+<div class="carbon"></div>
+<div class="glow"></div>
+<div class="streaks" id="streaks"></div>
+<div class="watermark"><span id="watermark-text"></span></div>
+
+<main class="relative z-10 min-h-screen px-4 py-10 sm:px-8">
+  <div class="max-w-3xl mx-auto space-y-8">
+
+    <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center justify-between gap-4">
+      <p class="text-xs uppercase tracking-widest text-zinc-500">Theme</p>
+      <select id="theme-select" class="text-sm text-zinc-100 rounded-lg px-3 py-1.5 focus:outline-none">
+        <!-- options injected by JS -->
+      </select>
+    </div>
+
+    <header class="space-y-1">
+      <p class="text-lg font-bold tracking-tight text-white">Rev<span class="accent-text">Match</span></p>
+      <p class="text-sm uppercase tracking-widest accent-text font-semibold">AI Race Month · Problem 01</p>
+      <h1 class="text-3xl sm:text-4xl font-bold">The Silent Co-Driver</h1>
+      <p class="text-zinc-400">Upload a radio clip, add lap times, and see driver stress mapped against performance.</p>
+    </header>
+
+    <section class="space-y-4 bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+      <div>
+        <div class="flex gap-2 mb-3">
+          <button class="px-3 py-1.5 rounded-lg text-sm font-medium border accent-bg accent-border text-white">Upload file</button>
+          <button class="px-3 py-1.5 rounded-lg text-sm font-medium border bg-zinc-800 border-zinc-700 text-zinc-300">Record live</button>
+        </div>
+        <label class="block text-sm font-medium mb-2">Radio clip (WAV/MP3)</label>
+        <div class="block w-full text-sm text-zinc-300">
+          <span class="inline-block mr-4 py-2 px-4 rounded-lg accent-bg text-white font-medium">Choose File</span>
+          <span class="text-zinc-500">box_radio_clip_04.wav</span>
+        </div>
+        <p class="text-xs text-zinc-500 mt-2">Ready: box_radio_clip_04.wav (412 KB)</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">Lap times (comma-separated, m:ss.s or seconds)</label>
+        <input type="text" value="1:23.4, 1:24.1, 1:26.8, 1:25.0, 1:24.6"
+          class="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm" readonly />
+      </div>
+
+      <button class="w-full sm:w-auto px-6 py-2.5 rounded-lg accent-bg font-semibold text-white">Run analysis</button>
+    </section>
+
+    <section class="space-y-4 bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-zinc-500 mb-1">Transcript</p>
+        <p class="text-zinc-200">&ldquo;Box box box, we're losing the rear on entry, tyres are gone.&rdquo;</p>
+      </div>
+
+      <div>
+        <p class="text-xs uppercase tracking-wide text-zinc-500 mb-1">Detected tone</p>
+        <span class="inline-block px-3 py-1 rounded-full text-sm font-medium border accent-badge">stressed · 87% confidence</span>
+      </div>
+
+      <div>
+        <p class="text-xs uppercase tracking-wide text-zinc-500 mb-2">Lap performance</p>
+        <div class="w-full h-72">
+          <svg viewBox="0 0 600 260" class="w-full h-full">
+            <line x1="40" y1="20" x2="40" y2="220" stroke="#3f3f46" stroke-width="1"/>
+            <line x1="40" y1="220" x2="580" y2="220" stroke="#3f3f46" stroke-width="1"/>
+            <polyline id="lap-line" points="80,140 180,120 280,40 380,90 480,110" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+            <circle cx="80" cy="140" r="3" fill="var(--accent)"/>
+            <circle cx="180" cy="120" r="3" fill="var(--accent)"/>
+            <circle cx="280" cy="40" r="6" fill="var(--accent)"/>
+            <circle cx="380" cy="90" r="3" fill="var(--accent)"/>
+            <circle cx="480" cy="110" r="3" fill="var(--accent)"/>
+            <text x="76" y="240" fill="#a1a1aa" font-size="11">Lap 1</text>
+            <text x="176" y="240" fill="#a1a1aa" font-size="11">Lap 2</text>
+            <text x="276" y="240" fill="#a1a1aa" font-size="11">Lap 3</text>
+            <text x="376" y="240" fill="#a1a1aa" font-size="11">Lap 4</text>
+            <text x="476" y="240" fill="#a1a1aa" font-size="11">Lap 5</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="border-l-2 pl-4 accent-border">
+        <p class="text-xs uppercase tracking-wide text-zinc-500 mb-1">Co-driver insight</p>
+        <p class="text-zinc-100">Stress spike detected right before lap 3, which came in 2.7s slower than the average.
+          The tone shift preceded the time loss — worth flagging tyre degradation to the driver
+          a lap earlier next stint.</p>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script>
+const themes = [
+  { name: "RevMatch (default)", watermark: "", color: null },
+  { name: "McLaren",      watermark: "McLaren",      color: "#FF8000" },
+  { name: "Ferrari",      watermark: "Ferrari",      color: "#EF1A2D" },
+  { name: "Mercedes",     watermark: "Mercedes",     color: "#00A19B" },
+  { name: "Red Bull",     watermark: "Red Bull",     color: "#F3D52E" },
+  { name: "Aston Martin", watermark: "Aston Martin", color: "#006F62" },
+  { name: "Alpine",       watermark: "Alpine",       color: "#FD4BC7" },
+  { name: "Williams",     watermark: "Williams",     color: "#00AEEF" },
+  { name: "Racing Bulls", watermark: "Racing Bulls", color: "#1326D1" },
+  { name: "Haas",         watermark: "Haas",         color: "#FFFFFF" },
+  { name: "Cadillac",     watermark: "Cadillac",     color: "#C5B358" },
+  { name: "Audi",         watermark: "Audi",         color: "#F50537" },
+];
+
+function applyTheme(theme) {
+  const wm = document.getElementById("watermark-text");
+  if (theme.color) {
+    wm.textContent = theme.watermark.toUpperCase();
+    wm.style.color = theme.color;
+    wm.classList.add("visible");
+  } else {
+    wm.classList.remove("visible");
+  }
+  // Foreground UI (buttons, badges, chart, streaks) intentionally stays
+  // constant RevMatch red across every theme — only the background
+  // watermark identifies the selected team.
+}
+
+function buildStreaks() {
+  const container = document.getElementById("streaks");
+  container.innerHTML = "";
+  for (let i = 0; i < 6; i++) {
+    const s = document.createElement("div");
+    s.className = "streak";
+    s.style.setProperty("--top", `${8 + i * 15}%`);
+    s.style.setProperty("--dur", `${5 + (i % 3)}s`);
+    s.style.setProperty("--delay", `${i * 0.7}s`);
+    container.appendChild(s);
+  }
+}
+buildStreaks();
+
+const select = document.getElementById("theme-select");
+themes.forEach((theme, i) => {
+  const opt = document.createElement("option");
+  opt.value = i;
+  opt.textContent = theme.name;
+  select.appendChild(opt);
+});
+select.addEventListener("change", () => applyTheme(themes[select.value]));
+
+// default on load: no watermark, animation only
+applyTheme(themes[0]);
+</script>
+</body>
+</html>

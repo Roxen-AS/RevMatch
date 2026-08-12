@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full antialiased">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RevMatch — real app preview</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { background: #09090b; }
+  :root { --accent: #ef4444; --accent-soft: rgba(239,68,68,0.10); }
+  .carbon { position: fixed; inset: 0; z-index: -3; background-color: #09090b;
+    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 6px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 6px); }
+  .bg-glow { position: fixed; top: -20%; left: 50%; width: 140vw; height: 70vh; transform: translateX(-50%); z-index: -2;
+    background: radial-gradient(ellipse at center, var(--accent-soft) 0%, transparent 65%); filter: blur(10px); animation: pulse 6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 0.7; } 50% { opacity: 1; } }
+  .streaks { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+  .streak { position: absolute; height: 2px; width: 40vw; top: var(--top); left: -45vw;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.5; filter: blur(0.5px);
+    animation: sweep var(--dur) linear infinite; animation-delay: var(--delay); transform: skewY(-6deg); }
+  @keyframes sweep { 0% { transform: translateX(0) skewY(-6deg); opacity: 0; } 8% { opacity: 0.55; } 92% { opacity: 0.55; } 100% { transform: translateX(230vw) skewY(-6deg); opacity: 0; } }
+  .checker { height: 10px; background-image: conic-gradient(#3f3f46 90deg, transparent 90deg 180deg, #3f3f46 180deg 270deg, transparent 270deg);
+    background-size: 10px 10px; opacity: 0.6; }
+</style>
+</head>
+<body class="min-h-full flex flex-col text-zinc-100">
+<div class="carbon"></div>
+<div class="bg-glow"></div>
+<div class="streaks" id="streaks"></div>
+
+<main class="relative z-10 min-h-screen px-4 py-10 sm:px-8">
+  <div class="max-w-3xl mx-auto space-y-8">
+
+    <header class="space-y-1">
+      <p class="text-lg font-bold tracking-tight text-white">Rev<span class="text-red-500">Match</span></p>
+      <p class="text-sm uppercase tracking-widest text-red-500 font-semibold">AI Race Month · Problem 01</p>
+      <h1 class="text-3xl sm:text-4xl font-bold">The Silent Co-Driver</h1>
+      <p class="text-zinc-400">Play or upload a radio clip, add lap times, and see driver stress mapped against performance.</p>
+    </header>
+
+    <div class="checker rounded-full"></div>
+
+    <section class="space-y-4 bg-zinc-900/90 border border-zinc-800 rounded-xl p-5 backdrop-blur-sm">
+      <div>
+        <div class="flex gap-2 mb-3">
+          <button class="px-3 py-1.5 rounded-lg text-sm font-medium border bg-red-600 border-red-600 text-white">Upload file</button>
+          <button class="px-3 py-1.5 rounded-lg text-sm font-medium border bg-zinc-800 border-zinc-700 text-zinc-300">Record live</button>
+        </div>
+        <label class="block text-sm font-medium mb-2">Radio clip (WAV/MP3)</label>
+        <div class="block w-full text-sm text-zinc-300">
+          <span class="inline-block mr-4 py-2 px-4 rounded-lg bg-red-600 text-white font-medium">Choose File</span>
+          <span class="text-zinc-500">box_radio_clip_04.wav</span>
+        </div>
+        <audio controls class="w-full mt-3 h-10"></audio>
+        <p class="text-xs text-zinc-500 mt-2">box_radio_clip_04.wav (412 KB)</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">Lap times (comma-separated, m:ss.s or seconds)</label>
+        <input type="text" value="1:23.4, 1:24.1, 1:26.8, 1:25.0, 1:24.6" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2 text-sm" readonly />
+      </div>
+
+      <button class="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-red-600 font-semibold text-white">Run analysis</button>
+    </section>
+
+    <section class="space-y-5 bg-zinc-900/90 border border-zinc-800 rounded-xl p-5 backdrop-blur-sm">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-zinc-500 mb-1">Transcript</p>
+        <p class="text-zinc-200 text-lg leading-snug">&ldquo;Box box box, we're losing the rear on entry, tyres are gone.&rdquo;</p>
+      </div>
+
+      <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div class="flex flex-col items-center">
+          <svg viewBox="0 0 200 120" class="w-48 h-auto" id="gauge"></svg>
+          <p class="text-sm font-bold uppercase tracking-wide text-red-500">stressed · 87%</p>
+        </div>
+        <span class="inline-block self-start px-3 py-1 rounded-full text-sm font-medium border bg-red-500/10 text-red-400 border-red-500/30">
+          stressed · 87% confidence
+        </span>
+      </div>
+
+      <div>
+        <p class="text-xs uppercase tracking-wide text-zinc-500 mb-2">Lap performance</p>
+        <svg viewBox="0 0 600 260" class="w-full h-72">
+          <line x1="40" y1="20" x2="40" y2="220" stroke="#3f3f46" stroke-width="1"/>
+          <line x1="40" y1="220" x2="580" y2="220" stroke="#3f3f46" stroke-width="1"/>
+          <polyline points="80,140 180,120 280,40 380,90 480,110" fill="none" stroke="#ef4444" stroke-width="2.5"/>
+          <circle cx="80" cy="140" r="3" fill="#ef4444"/>
+          <circle cx="180" cy="120" r="3" fill="#ef4444"/>
+          <circle cx="280" cy="40" r="6" fill="#ef4444"/>
+          <circle cx="380" cy="90" r="3" fill="#ef4444"/>
+          <circle cx="480" cy="110" r="3" fill="#ef4444"/>
+        </svg>
+      </div>
+
+      <div class="border-l-2 border-red-500 pl-4">
+        <p class="text-xs uppercase tracking-wide text-zinc-500 mb-1">Co-driver insight</p>
+        <p class="text-zinc-100">Stress spike detected right before lap 3, which came in 2.7s slower than the average.
+          Worth flagging tyre degradation a lap earlier next stint.</p>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script>
+for (let i = 0; i < 6; i++) {
+  const s = document.createElement("div");
+  s.className = "streak";
+  s.style.setProperty("--top", `${8 + i * 15}%`);
+  s.style.setProperty("--dur", `${5 + (i % 3)}s`);
+  s.style.setProperty("--delay", `${i * 0.7}s`);
+  document.getElementById("streaks").appendChild(s);
+}
+
+const gauge = document.getElementById("gauge");
+const pct = 0.87, color = "#ef4444", cx = 100, cy = 100, r = 78;
+const angle = -90 + pct * 180, rad = angle * Math.PI / 180;
+const nx = cx + r * 0.8 * Math.cos(rad), ny = cy + r * 0.8 * Math.sin(rad);
+let svg = "";
+for (let i = 0; i <= 24; i++) {
+  const t = i / 24, a = (-180 + t * 180) * Math.PI / 180;
+  const x1 = cx + (r - 6) * Math.cos(a), y1 = cy + (r - 6) * Math.sin(a);
+  const x2 = cx + r * Math.cos(a), y2 = cy + r * Math.sin(a);
+  svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${t <= pct ? color : '#3f3f46'}" stroke-width="2"/>`;
+}
+svg += `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="${color}" stroke-width="3" stroke-linecap="round"/>`;
+svg += `<circle cx="${cx}" cy="${cy}" r="4" fill="${color}"/>`;
+svg += `<text x="${cx}" y="${cy+22}" text-anchor="middle" fill="#a1a1aa" font-size="10" letter-spacing="1">STRESS</text>`;
+gauge.innerHTML = svg;
+</script>
+</body>
+</html>
