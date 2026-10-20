@@ -38,53 +38,68 @@ export async function POST(req: NextRequest) {
     const fastestLap = validLaps.reduce((a, b) => (b.lapTime < a.lapTime ? b : a), validLaps[0]);
     const deltaSlow = slowestLap.lapTime - avgLap;
 
-    // 1. Try Groq if key is present
+    // 1. Try Groq with dynamically discovered active models
     const groqKey = process.env.GROQ_API_KEY;
     if (groqKey && groqKey.trim()) {
-      const groq = new OpenAI({
-        apiKey: groqKey.trim(),
-        baseURL: "https://api.groq.com/openai/v1",
-      });
+      try {
+        const groq = new OpenAI({
+          apiKey: groqKey.trim(),
+          baseURL: "https://api.groq.com/openai/v1",
+        });
 
-      const candidateModels = [
-        "llama-3.1-8b-instant",
-        "llama-3.3-70b-versatile",
-        "llama-3.1-70b-versatile",
-        "llama3-70b-8192",
-      ];
-
-      for (const model of candidateModels) {
+        // Query active model list to avoid hardcoded deprecation mismatches
+        let candidateModels: string[] = [];
         try {
-          const completion = await groq.chat.completions.create({
-            model,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are 'the silent co-driver' — an elite Formula 1 race engineer's assistant that turns radio tone analysis into one crisp, actionable insight. Be specific, cite lap numbers, keep it to 2-3 sentences, no fluff, no markdown.",
-              },
-              {
-                role: "user",
-                content: `Radio transcript: "${transcript || "Radio message received"}"
+          const list = await groq.models.list();
+          candidateModels = list.data
+            .map((m) => m.id)
+            .filter((id) => !id.includes("whisper") && !id.includes("guard") && !id.includes("safeguard") && !id.includes("tts"));
+          console.log("Discovered Groq chat models:", candidateModels);
+        } catch (listErr) {
+          console.warn("Could not list Groq models dynamically:", listErr);
+          candidateModels = [
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "mixtral-8x7b-32768",
+            "gemma2-9b-it",
+          ];
+        }
+
+        for (const model of candidateModels) {
+          try {
+            const completion = await groq.chat.completions.create({
+              model,
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    "You are 'the silent co-driver' — an elite Formula 1 race engineer's assistant that turns radio tone analysis into one crisp, actionable insight. Be specific, cite lap numbers, keep it to 2-3 sentences, no fluff, no markdown.",
+                },
+                {
+                  role: "user",
+                  content: `Radio transcript: "${transcript || "Radio message received"}"
 Detected tone: ${mood} (confidence ${(confidence * 100).toFixed(0)}%)
 Lap times: ${lapSummary}
 Average lap: ${avgLap.toFixed(2)}s
 Slowest lap: Lap ${slowestLap.lap} at ${slowestLap.lapTime.toFixed(2)}s
 
 Explain what the tone change likely means for performance and what the team should watch for.`,
-              },
-            ],
-            temperature: 0.3,
-            max_tokens: 180,
-          });
+                },
+              ],
+              temperature: 0.3,
+              max_tokens: 180,
+            });
 
-          const insight = completion.choices[0]?.message?.content?.trim();
-          if (insight) {
-            return NextResponse.json({ insight });
+            const insight = completion.choices[0]?.message?.content?.trim();
+            if (insight) {
+              return NextResponse.json({ insight });
+            }
+          } catch (err) {
+            console.warn(`Groq inference failed for model ${model}:`, err);
           }
-        } catch (err) {
-          console.warn(`Groq inference failed for model ${model}:`, err);
         }
+      } catch (clientErr) {
+        console.warn("Groq client setup failed:", clientErr);
       }
     }
 

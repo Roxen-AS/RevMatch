@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const buffer = await file.arrayBuffer();
     const fileName = (file.name || "").toLowerCase();
 
-    // 1. Try Groq Whisper + Groq Fast LLM for accurate multimodal speech emotion analysis
+    // 1. Try Groq Whisper + Groq LLM for accurate speech emotion analysis
     const groqKey = process.env.GROQ_API_KEY;
     if (groqKey && groqKey.trim()) {
       try {
@@ -55,11 +55,26 @@ export async function POST(req: NextRequest) {
               baseURL: "https://api.groq.com/openai/v1",
             });
 
-            const modelCandidates = [
-              "llama-3.1-8b-instant",
-              "llama-3.3-70b-versatile",
-              "llama-3.1-70b-versatile",
-            ];
+            // Dynamically query available chat models
+            let modelCandidates: string[] = [];
+            try {
+              const list = await groq.models.list();
+              modelCandidates = list.data
+                .map((m) => m.id)
+                .filter(
+                  (id) =>
+                    !id.includes("whisper") &&
+                    !id.includes("guard") &&
+                    !id.includes("safeguard") &&
+                    !id.includes("tts")
+                );
+            } catch {
+              modelCandidates = [
+                "llama-3.3-70b-versatile",
+                "llama-3.1-8b-instant",
+                "mixtral-8x7b-32768",
+              ];
+            }
 
             for (const model of modelCandidates) {
               try {
