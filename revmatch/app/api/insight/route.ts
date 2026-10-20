@@ -18,13 +18,16 @@ export async function POST(req: NextRequest) {
       laps: LapPoint[];
     };
 
-    const validLaps = Array.isArray(laps) && laps.length > 0 ? laps : [
-      { lap: 1, lapTime: 83.4 },
-      { lap: 2, lapTime: 84.1 },
-      { lap: 3, lapTime: 86.8 },
-      { lap: 4, lapTime: 85.0 },
-      { lap: 5, lapTime: 84.6 },
-    ];
+    const validLaps =
+      Array.isArray(laps) && laps.length > 0
+        ? laps
+        : [
+            { lap: 1, lapTime: 83.4 },
+            { lap: 2, lapTime: 84.1 },
+            { lap: 3, lapTime: 86.8 },
+            { lap: 4, lapTime: 85.0 },
+            { lap: 5, lapTime: 84.6 },
+          ];
 
     const lapSummary = validLaps
       .map((l) => `Lap ${l.lap}: ${l.lapTime.toFixed(2)}s`)
@@ -38,41 +41,50 @@ export async function POST(req: NextRequest) {
     // 1. Try Groq if key is present
     const groqKey = process.env.GROQ_API_KEY;
     if (groqKey && groqKey.trim()) {
-      try {
-        const groq = new OpenAI({
-          apiKey: groqKey.trim(),
-          baseURL: "https://api.groq.com/openai/v1",
-        });
+      const groq = new OpenAI({
+        apiKey: groqKey.trim(),
+        baseURL: "https://api.groq.com/openai/v1",
+      });
 
-        const completion = await groq.chat.completions.create({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are 'the silent co-driver' — an elite Formula 1 race engineer's assistant that turns radio tone analysis into one crisp, actionable insight. Be specific, cite lap numbers, keep it to 2-3 sentences, no fluff, no markdown.",
-            },
-            {
-              role: "user",
-              content: `Radio transcript: "${transcript || "Radio message received"}"
+      const candidateModels = [
+        "llama-3.1-8b-instant",
+        "llama-3.3-70b-versatile",
+        "llama-3.1-70b-versatile",
+        "llama3-70b-8192",
+      ];
+
+      for (const model of candidateModels) {
+        try {
+          const completion = await groq.chat.completions.create({
+            model,
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are 'the silent co-driver' — an elite Formula 1 race engineer's assistant that turns radio tone analysis into one crisp, actionable insight. Be specific, cite lap numbers, keep it to 2-3 sentences, no fluff, no markdown.",
+              },
+              {
+                role: "user",
+                content: `Radio transcript: "${transcript || "Radio message received"}"
 Detected tone: ${mood} (confidence ${(confidence * 100).toFixed(0)}%)
 Lap times: ${lapSummary}
 Average lap: ${avgLap.toFixed(2)}s
 Slowest lap: Lap ${slowestLap.lap} at ${slowestLap.lapTime.toFixed(2)}s
 
 Explain what the tone change likely means for performance and what the team should watch for.`,
-            },
-          ],
-          temperature: 0.3,
-          max_tokens: 180,
-        });
+              },
+            ],
+            temperature: 0.3,
+            max_tokens: 180,
+          });
 
-        const insight = completion.choices[0]?.message?.content?.trim();
-        if (insight) {
-          return NextResponse.json({ insight });
+          const insight = completion.choices[0]?.message?.content?.trim();
+          if (insight) {
+            return NextResponse.json({ insight });
+          }
+        } catch (err) {
+          console.warn(`Groq inference failed for model ${model}:`, err);
         }
-      } catch (err) {
-        console.warn("Groq inference failed, falling back to Race Engineer Engine:", err);
       }
     }
 
