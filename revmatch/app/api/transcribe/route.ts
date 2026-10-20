@@ -43,18 +43,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Try Hugging Face Whisper
-    try {
-      const hfResult = await hfAudioInference(
-        "openai/whisper-small",
-        buffer,
-        file.type || "audio/wav"
-      );
-      if (hfResult && hfResult.text && hfResult.text.trim()) {
-        return NextResponse.json({ text: hfResult.text.trim() });
+    // 2. Try Hugging Face Whisper (Free Serverless Tier)
+    const hfWhisperModels = ["openai/whisper-large-v3-turbo", "openai/whisper-small"];
+    for (const model of hfWhisperModels) {
+      try {
+        const hfResult = await hfAudioInference(
+          model,
+          buffer,
+          file.type || "audio/wav"
+        );
+        if (hfResult && hfResult.text && hfResult.text.trim()) {
+          return NextResponse.json({ text: hfResult.text.trim() });
+        }
+      } catch (err) {
+        console.warn(`Hugging Face transcription with ${model} failed:`, err);
       }
-    } catch (err) {
-      console.warn("Hugging Face transcription failed:", err);
     }
 
     // 3. Resilient Fallback Engine for F1 Radio clips (when external API tokens are unavailable)

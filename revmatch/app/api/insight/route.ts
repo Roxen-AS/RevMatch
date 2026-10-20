@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { hfTextInference } from "@/lib/hf";
 import OpenAI from "openai";
 
 export const runtime = "nodejs";
@@ -47,21 +48,26 @@ export async function POST(req: NextRequest) {
           baseURL: "https://api.groq.com/openai/v1",
         });
 
-        // Query active model list to avoid hardcoded deprecation mismatches
         let candidateModels: string[] = [];
         try {
           const list = await groq.models.list();
           candidateModels = list.data
             .map((m) => m.id)
-            .filter((id) => !id.includes("whisper") && !id.includes("guard") && !id.includes("safeguard") && !id.includes("tts") && !id.includes("orpheus"));
-          console.log("Discovered Groq chat models:", candidateModels);
+            .filter(
+              (id) =>
+                !id.includes("whisper") &&
+                !id.includes("guard") &&
+                !id.includes("safeguard") &&
+                !id.includes("tts") &&
+                !id.includes("orpheus")
+            );
         } catch (listErr) {
           console.warn("Could not list Groq models dynamically:", listErr);
           candidateModels = [
+            "openai/gpt-oss-20b",
             "llama-3.3-70b-versatile",
             "llama-3.1-8b-instant",
             "mixtral-8x7b-32768",
-            "gemma2-9b-it",
           ];
         }
 
@@ -92,7 +98,7 @@ Explain what the tone change likely means for performance and what the team shou
 
             const insight = completion.choices[0]?.message?.content?.trim();
             if (insight) {
-              return NextResponse.json({ insight });
+              return NextResponse.json({ insight, source: `groq:${model}` });
             }
           } catch (err) {
             console.warn(`Groq inference failed for model ${model}:`, err);
@@ -103,7 +109,35 @@ Explain what the tone change likely means for performance and what the team shou
       }
     }
 
-    // 2. Try Gemini if configured
+    // 2. Try Hugging Face Free Tier Text Generation Models
+    if (process.env.HF_API_TOKEN) {
+      const hfChatModels = [
+        "Qwen/Qwen2.5-7B-Instruct",
+        "meta-llama/Llama-3.2-3B-Instruct",
+        "mistralai/Mistral-7B-Instruct-v0.3",
+      ];
+      for (const model of hfChatModels) {
+        try {
+          const prompt = `You are 'the silent co-driver' — an elite Formula 1 race engineer's assistant.
+Radio transcript: "${transcript || "Radio message received"}"
+Detected tone: ${mood} (confidence ${(confidence * 100).toFixed(0)}%)
+Lap times: ${lapSummary}
+Average lap: ${avgLap.toFixed(2)}s, Slowest lap: Lap ${slowestLap.lap} (${slowestLap.lapTime.toFixed(2)}s).
+Give 2-3 sentences of crisp, professional race telemetry analysis. No markdown, no fluff.`;
+
+          const res = await hfTextInference(model, prompt);
+          const generated = Array.isArray(res) ? res[0]?.generated_text : res?.generated_text;
+          if (generated) {
+            const clean = generated.replace(prompt, "").trim();
+            if (clean) return NextResponse.json({ insight: clean, source: `hf:${model}` });
+          }
+        } catch (err) {
+          console.warn(`HF chat model ${model} failed:`, err);
+        }
+      }
+    }
+
+    // 3. Try Gemini if configured
     const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
     if (geminiKey && geminiKey.trim()) {
       try {
@@ -125,14 +159,14 @@ Give 2-3 sentences of crisp, professional race telemetry analysis. No markdown, 
         if (res.ok) {
           const data = await res.json();
           const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-          if (text) return NextResponse.json({ insight: text });
+          if (text) return NextResponse.json({ insight: text, source: "gemini" });
         }
       } catch (err) {
         console.warn("Gemini inference failed:", err);
       }
     }
 
-    // 3. Autonomous F1 Race Engineer Co-Driver Engine (Deterministic & Telemetry-Linked)
+    // 4. Autonomous F1 Race Engineer Co-Driver Engine (Deterministic & Telemetry-Linked)
     let insight = "";
     if (mood === "stressed") {
       insight = `Elevated driver stress directly correlates with Lap ${slowestLap.lap} (${slowestLap.lapTime.toFixed(2)}s, +${deltaSlow.toFixed(2)}s off average pace). Radio agitation indicates rear-tire thermal degradation or traffic impedance in Sector 2. Recommend pre-empting the planned pit window by 2 laps to avoid undercutting by rival cars.`;
@@ -142,7 +176,7 @@ Give 2-3 sentences of crisp, professional race telemetry analysis. No markdown, 
       insight = `Calm driver acoustic baseline matches consistent pace around ${avgLap.toFixed(2)}s, despite dropping time on Lap ${slowestLap.lap} (${slowestLap.lapTime.toFixed(2)}s). The radio feedback indicates controlled tire delta management; the team should hold strategy Plan A and watch gap-to-box delta.`;
     }
 
-    return NextResponse.json({ insight });
+    return NextResponse.json({ insight, source: "telemetry-engine" });
   } catch (err: any) {
     console.error("insight error:", err);
     return NextResponse.json(
