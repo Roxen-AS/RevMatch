@@ -66,24 +66,22 @@ export async function POST(req: NextRequest) {
                     !id.includes("whisper") &&
                     !id.includes("guard") &&
                     !id.includes("safeguard") &&
-                    !id.includes("tts")
+                    !id.includes("tts") &&
+                    !id.includes("orpheus")
                 );
             } catch {
               modelCandidates = [
+                "openai/gpt-oss-20b",
                 "llama-3.3-70b-versatile",
                 "llama-3.1-8b-instant",
                 "mixtral-8x7b-32768",
               ];
             }
 
-            for (const model of modelCandidates) {
-              try {
-                const completion = await groq.chat.completions.create({
-                  model,
-                  messages: [
-                    {
-                      role: "system",
-                      content: `You are an elite Formula 1 radio emotion classifier.
+            const promptMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+              {
+                role: "system",
+                content: `You are an elite Formula 1 radio emotion classifier.
 Analyze the transcribed radio message and determine the driver's emotional state and tone.
 Classify into ONE of:
 - "calm": steady, in control, acknowledging instructions ("copy", "understood", "all good"), routine checks, neutral pacing.
@@ -101,20 +99,39 @@ Respond ONLY with valid JSON in this exact structure:
     { "label": "tired", "score": <number between 0.01 and 0.98> }
   ]
 }`,
-                    },
-                    {
-                      role: "user",
-                      content: `Driver radio message: "${transcript}"`,
-                    },
-                  ],
-                  temperature: 0.1,
-                  max_tokens: 150,
-                  response_format: { type: "json_object" },
-                });
+              },
+              {
+                role: "user",
+                content: `Driver radio message: "${transcript}"`,
+              },
+            ];
 
-                const rawJson = completion.choices[0]?.message?.content?.trim();
+            for (const model of modelCandidates) {
+              try {
+                let rawJson = "";
+                try {
+                  const completion = await groq.chat.completions.create({
+                    model,
+                    messages: promptMessages,
+                    temperature: 0.1,
+                    max_tokens: 150,
+                    response_format: { type: "json_object" },
+                  });
+                  rawJson = completion.choices[0]?.message?.content?.trim() || "";
+                } catch {
+                  // Fallback without strict response_format if model lacks json_object support
+                  const completion = await groq.chat.completions.create({
+                    model,
+                    messages: promptMessages,
+                    temperature: 0.1,
+                    max_tokens: 150,
+                  });
+                  rawJson = completion.choices[0]?.message?.content?.trim() || "";
+                }
+
                 if (rawJson) {
-                  const parsed = JSON.parse(rawJson);
+                  const jsonMatch = rawJson.match(/\{[\s\S]*\}/);
+                  const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(rawJson);
                   if (
                     parsed &&
                     (parsed.mood === "calm" || parsed.mood === "stressed" || parsed.mood === "tired")

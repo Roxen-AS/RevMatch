@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
           const list = await groq.models.list();
           candidateModels = list.data
             .map((m) => m.id)
-            .filter((id) => !id.includes("whisper") && !id.includes("guard") && !id.includes("safeguard") && !id.includes("tts"));
+            .filter((id) => !id.includes("whisper") && !id.includes("guard") && !id.includes("safeguard") && !id.includes("tts") && !id.includes("orpheus"));
           console.log("Discovered Groq chat models:", candidateModels);
         } catch (listErr) {
           console.warn("Could not list Groq models dynamically:", listErr);
